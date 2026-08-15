@@ -1,0 +1,244 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LAST STANDING — Conference Scoreboard</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <div>
+      <small>LAST STANDING</small>
+      <h1>CONFERENCE SCOREBOARD</h1>
+      <p>مَن يغلب</p>
+    </div>
+    <span id="status">Connecting…</span>
+  </header>
+
+  <main>
+    <section class="card">
+      <div class="head">
+        <h2>🏆 Leaderboard</h2>
+        <button type="button" onclick="loadDashboard()">↻ Refresh</button>
+      </div>
+      <div id="board"></div>
+    </section>
+
+    <section class="cols">
+      <section class="card">
+        <h2>💣 Add Score</h2>
+        <p class="hint">💣 Bomb = 25 &nbsp; | &nbsp; 🛡️ Defuse = 25 &nbsp; | &nbsp; 🤝 Teamwork = 5</p>
+
+        <form id="scoreForm">
+          <label>
+            Team
+            <select id="team" required></select>
+          </label>
+
+          <label>
+            Result
+            <select id="result" required>
+              <option value="bomb">💣 Bomb Exploded +25</option>
+              <option value="defuse">🛡️ Defused +25</option>
+              <option value="teamwork">🤝 Teamwork +5</option>
+            </select>
+          </label>
+
+          <label>
+            Round
+            <select id="round" required>
+              <option value="1">Round 1</option>
+              <option value="2">Round 2</option>
+              <option value="3">Round 3</option>
+              <option value="4">Round 4</option>
+            </select>
+          </label>
+
+          <label>
+            Notes
+            <input id="notes" type="text" maxlength="150" placeholder="Optional">
+          </label>
+
+          <button class="primary" type="submit">ADD SCORE</button>
+        </form>
+
+        <div id="msg"></div>
+      </section>
+
+      <section class="card">
+        <h2>📊 Live Stats</h2>
+        <div id="stats" class="stats"></div>
+      </section>
+    </section>
+
+    <section class="card">
+      <h2>🎮 Recent Scores</h2>
+      <div class="table">
+        <table>
+          <thead>
+            <tr>
+              <th>Time</th>
+              <th>Team</th>
+              <th>Round</th>
+              <th>Result</th>
+              <th>Points</th>
+            </tr>
+          </thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <script src="config.js"></script>
+  <script>
+    const RESULT_LABELS = {
+      bomb: "💣 Bomb",
+      defuse: "🛡️ Defuse",
+      teamwork: "🤝 Teamwork"
+    };
+
+    async function api(action, data = {}) {
+      const response = await fetch(APP_CONFIG.API_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "text/plain;charset=utf-8"
+        },
+        body: JSON.stringify({ action, ...data })
+      });
+
+      if (!response.ok) {
+        throw new Error("Server returned HTTP " + response.status);
+      }
+
+      const result = await response.json();
+
+      if (!result.ok) {
+        throw new Error(result.error || "Unknown server error");
+      }
+
+      return result;
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? "").replace(/[&<>"']/g, function (char) {
+        return {
+          "&": "&amp;",
+          "<": "&lt;",
+          ">": "&gt;",
+          '"': "&quot;",
+          "'": "&#039;"
+        }[char];
+      });
+    }
+
+    async function loadDashboard() {
+      const status = document.getElementById("status");
+
+      try {
+        status.textContent = "Updating…";
+
+        const data = await api("dashboard");
+
+        const board = document.getElementById("board");
+        const teamSelect = document.getElementById("team");
+        const stats = document.getElementById("stats");
+        const rows = document.getElementById("rows");
+
+        board.innerHTML = data.teams.map(function (team, index) {
+          const medal = ["🥇", "🥈", "🥉"][index] || (index + 1);
+          const width = Math.min(team.total, 100);
+
+          return `
+            <div class="rank">
+              <b>${medal}</b>
+              <strong>${escapeHtml(team.name)}</strong>
+              <div class="bar"><i style="width:${width}%"></i></div>
+              <em>${team.total}</em>
+            </div>
+          `;
+        }).join("");
+
+        teamSelect.innerHTML = data.teams.map(function (team) {
+          return `<option value="${escapeHtml(team.name)}">${escapeHtml(team.name)}</option>`;
+        }).join("");
+
+        const totalPoints = data.teams.reduce(function (sum, team) {
+          return sum + Number(team.total || 0);
+        }, 0);
+
+        const bombCount = data.scores.filter(function (s) {
+          return s.result === "bomb";
+        }).length;
+
+        const defuseCount = data.scores.filter(function (s) {
+          return s.result === "defuse";
+        }).length;
+
+        const teamworkCount = data.scores.filter(function (s) {
+          return s.result === "teamwork";
+        }).length;
+
+        stats.innerHTML = `
+          <div><b>${totalPoints}</b><span>TOTAL POINTS</span></div>
+          <div><b>${bombCount}</b><span>💣 BOMBS</span></div>
+          <div><b>${defuseCount}</b><span>🛡️ DEFUSES</span></div>
+          <div><b>${teamworkCount}</b><span>🤝 TEAMWORK</span></div>
+        `;
+
+        rows.innerHTML = data.scores.slice(0, 30).map(function (score) {
+          return `
+            <tr>
+              <td>${escapeHtml(score.time)}</td>
+              <td>${escapeHtml(score.team)}</td>
+              <td>${escapeHtml(score.round)}</td>
+              <td>${RESULT_LABELS[score.result] || escapeHtml(score.result)}</td>
+              <td>+${escapeHtml(score.points)}</td>
+            </tr>
+          `;
+        }).join("");
+
+        status.textContent = "● LIVE";
+        status.className = "live";
+
+      } catch (error) {
+        status.textContent = "● OFFLINE";
+        status.className = "offline";
+        document.getElementById("msg").textContent = error.message;
+      }
+    }
+
+    document.getElementById("scoreForm").addEventListener("submit", async function (event) {
+      event.preventDefault();
+
+      const msg = document.getElementById("msg");
+      const button = event.target.querySelector("button[type='submit']");
+
+      button.disabled = true;
+      msg.textContent = "Saving…";
+
+      try {
+        await api("addScore", {
+          team: document.getElementById("team").value,
+          result: document.getElementById("result").value,
+          round: Number(document.getElementById("round").value),
+          notes: document.getElementById("notes").value
+        });
+
+        document.getElementById("notes").value = "";
+        msg.textContent = "Score added ✓";
+        await loadDashboard();
+
+      } catch (error) {
+        msg.textContent = error.message;
+      } finally {
+        button.disabled = false;
+      }
+    });
+
+    loadDashboard();
+    setInterval(loadDashboard, 15000);
+  </script>
+</body>
+</html>
