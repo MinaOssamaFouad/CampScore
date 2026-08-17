@@ -1,0 +1,312 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>🎁 متجر الهدايا — CampScore</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <div>
+      <small>CAMP SCORE</small>
+      <h1>🎁 متجر الهدايا</h1>
+      <p>اشترِ هداياك بنقاطك</p>
+    </div>
+    <a class="headerLink" href="index.html">🏆 لوحة النتائج</a>
+  </header>
+
+  <main>
+
+    <!-- LOGIN -->
+    <section id="loginScreen" class="card loginCard">
+      <h2>👋 أدخل بياناتك</h2>
+      <p class="hint">اكتب اسمك وفريقك كما هما مسجلان بالضبط</p>
+      <form id="loginForm">
+        <label>
+          الاسم
+          <input id="loginName" type="text" required>
+        </label>
+        <label>
+          الفريق
+          <select id="loginTeam" required></select>
+        </label>
+        <button class="primary" type="submit">دخول</button>
+      </form>
+      <div id="loginMsg" class="hint"></div>
+    </section>
+
+    <!-- STORE -->
+    <section id="storeScreen" class="hidden">
+
+      <section class="card">
+        <div class="balanceBar">
+          <span class="who" id="whoText"></span>
+          <span class="points"><span id="balanceValue">0</span> نقطة</span>
+        </div>
+        <button type="button" id="logoutBtn" style="margin-top:14px;">تسجيل خروج</button>
+      </section>
+
+      <section class="card">
+        <h2>🎁 الهدايا المتاحة</h2>
+        <div id="giftGrid" class="giftGrid"></div>
+      </section>
+
+      <section class="card">
+        <h2>🛒 سلتك</h2>
+        <div id="cartRows"></div>
+        <div class="cartTotal">
+          <span>الإجمالي</span>
+          <span id="cartTotal">0</span>
+        </div>
+        <button class="primary" type="button" id="checkoutBtn" style="width:100%; margin-top:10px;">
+          تأكيد الطلب (لا يمكن التراجع بعده)
+        </button>
+        <div id="checkoutMsg" class="hint"></div>
+      </section>
+
+      <section class="card">
+        <h2>📜 طلباتي السابقة</h2>
+        <div id="historyRows"></div>
+      </section>
+
+    </section>
+
+  </main>
+
+  <script src="config.js"></script>
+  <script>
+    const TEAMS_FALLBACK = [
+      "البابا اثانسيوس",
+      "البابا ديسقورس",
+      "البابا بطرس الجولي",
+      "البابا ديمتريوس الكرام"
+    ];
+
+    let member = null;   // { name, team }
+    let balance = 0;
+    let history = [];
+    let gifts = [];
+    let cart = [];        // array of gift objects
+
+    async function api(action, data = {}) {
+      const response = await fetch(APP_CONFIG.API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify({ action, ...data })
+      });
+
+      if (!response.ok) throw new Error("Server returned HTTP " + response.status);
+
+      const result = await response.json();
+      if (!result.ok) throw new Error(result.error || "Unknown server error");
+
+      return result;
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? "").replace(/[&<>"']/g, function (char) {
+        return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" }[char];
+      });
+    }
+
+    // Populate team dropdown. We don't have a public "list teams" endpoint,
+    // so we ask dashboard() once (public data) to get live team names.
+    async function loadTeamOptions() {
+      const teamSelect = document.getElementById("loginTeam");
+      let names = TEAMS_FALLBACK;
+      try {
+        const data = await api("dashboard");
+        if (data.teams && data.teams.length) {
+          names = data.teams.map(function (t) { return t.name; });
+        }
+      } catch (e) {
+        // fall back silently
+      }
+      teamSelect.innerHTML = names.map(function (n) {
+        return `<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`;
+      }).join("");
+    }
+
+    document.getElementById("loginForm").addEventListener("submit", async function (event) {
+      event.preventDefault();
+      const msg = document.getElementById("loginMsg");
+      const button = event.target.querySelector("button[type='submit']");
+
+      button.disabled = true;
+      msg.textContent = "جارِ التحقق…";
+
+      try {
+        const name = document.getElementById("loginName").value.trim();
+        const team = document.getElementById("loginTeam").value;
+
+        const res = await api("storeLogin", { name, team });
+
+        member = { name: res.name, team: res.team };
+        balance = res.balance;
+        history = res.history;
+        cart = [];
+
+        await loadGifts();
+        showStore();
+      } catch (error) {
+        msg.textContent = error.message;
+      } finally {
+        button.disabled = false;
+      }
+    });
+
+    document.getElementById("logoutBtn").addEventListener("click", function () {
+      member = null;
+      balance = 0;
+      history = [];
+      gifts = [];
+      cart = [];
+      document.getElementById("loginName").value = "";
+      document.getElementById("loginMsg").textContent = "";
+      document.getElementById("storeScreen").classList.add("hidden");
+      document.getElementById("loginScreen").classList.remove("hidden");
+    });
+
+    function showStore() {
+      document.getElementById("loginScreen").classList.add("hidden");
+      document.getElementById("storeScreen").classList.remove("hidden");
+      renderAll();
+    }
+
+    async function loadGifts() {
+      const res = await api("getGifts");
+      gifts = res.gifts;
+    }
+
+    function cartTotal() {
+      return cart.reduce(function (sum, g) { return sum + g.price; }, 0);
+    }
+
+    function inCartCount(giftName) {
+      return cart.filter(function (g) { return g.name === giftName; }).length;
+    }
+
+    function addToCart(giftId) {
+      const gift = gifts.find(function (g) { return g.id === giftId; });
+      if (!gift) return;
+
+      const remainingBalance = balance - cartTotal();
+      if (gift.price > remainingBalance) {
+        alert("رصيدك لا يكفي لإضافة هذه الهدية.");
+        return;
+      }
+      if (gift.remaining !== null && inCartCount(gift.name) >= gift.remaining) {
+        alert("الكمية المتاحة من هذه الهدية غير كافية.");
+        return;
+      }
+
+      cart.push(gift);
+      renderAll();
+    }
+
+    function removeFromCart(index) {
+      cart.splice(index, 1);
+      renderAll();
+    }
+
+    document.getElementById("checkoutBtn").addEventListener("click", async function () {
+      const msg = document.getElementById("checkoutMsg");
+      const button = document.getElementById("checkoutBtn");
+
+      if (!cart.length) {
+        msg.textContent = "السلة فارغة.";
+        return;
+      }
+
+      const confirmed = confirm("هل أنت متأكد من الطلب؟ لا يمكن التراجع أو التعديل بعد التأكيد.");
+      if (!confirmed) return;
+
+      button.disabled = true;
+      msg.textContent = "جارِ إتمام الطلب…";
+
+      try {
+        const items = cart.map(function (g) { return g.name; });
+
+        const res = await api("checkout", {
+          name: member.name,
+          team: member.team,
+          items: items
+        });
+
+        balance = res.balance;
+        history = res.history;
+        cart = [];
+
+        await loadGifts();
+        renderAll();
+        msg.textContent = "تم الطلب بنجاح ✓";
+      } catch (error) {
+        msg.textContent = error.message;
+      } finally {
+        button.disabled = false;
+      }
+    });
+
+    function renderAll() {
+      document.getElementById("whoText").textContent = member ? (member.name + " — " + member.team) : "";
+      document.getElementById("balanceValue").textContent = balance - cartTotal();
+
+      const remainingBalance = balance - cartTotal();
+
+      const grid = document.getElementById("giftGrid");
+      grid.innerHTML = gifts.map(function (gift) {
+        const outOfStock = gift.remaining !== null && (gift.remaining - inCartCount(gift.name)) <= 0;
+        const tooExpensive = gift.price > remainingBalance;
+        const disabled = outOfStock || tooExpensive;
+
+        const stockLabel = gift.remaining === null
+          ? ""
+          : `<div class="giftStock">المتبقي: ${gift.remaining - inCartCount(gift.name)}</div>`;
+
+        const imgHtml = gift.image
+          ? `<img class="giftImg" src="${escapeHtml(gift.image)}" alt="${escapeHtml(gift.name)}" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+             <div class="giftImg" style="display:none;">🎁</div>`
+          : `<div class="giftImg">🎁</div>`;
+
+        return `
+          <div class="giftCard">
+            ${imgHtml}
+            <div class="giftName">${escapeHtml(gift.name)}</div>
+            <div class="giftPrice">${gift.price} نقطة</div>
+            ${stockLabel}
+            <button type="button" ${disabled ? "disabled" : ""} onclick="addToCart(${gift.id})">
+              ${outOfStock ? "غير متاح" : (tooExpensive ? "رصيد غير كافٍ" : "أضف للسلة")}
+            </button>
+          </div>
+        `;
+      }).join("");
+
+      const cartRows = document.getElementById("cartRows");
+      cartRows.innerHTML = cart.length ? cart.map(function (g, index) {
+        return `
+          <div class="cartRow">
+            <span class="name">${escapeHtml(g.name)}</span>
+            <span>${g.price} نقطة</span>
+            <button class="remove" type="button" onclick="removeFromCart(${index})">✕</button>
+          </div>
+        `;
+      }).join("") : `<p class="hint">السلة فارغة</p>`;
+
+      document.getElementById("cartTotal").textContent = cartTotal();
+
+      const historyRows = document.getElementById("historyRows");
+      historyRows.innerHTML = history.length ? history.map(function (h) {
+        return `
+          <div class="historyRow">
+            <span>${escapeHtml(h.time)} — ${escapeHtml(h.gift)}</span>
+            <span>${h.price} نقطة</span>
+          </div>
+        `;
+      }).join("") : `<p class="hint">لا توجد طلبات سابقة</p>`;
+    }
+
+    loadTeamOptions();
+  </script>
+</body>
+</html>
