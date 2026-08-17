@@ -1,235 +1,428 @@
 <!doctype html>
-<html lang="en">
+<html lang="ar" dir="rtl">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>LAST STANDING — Conference Scoreboard</title>
+  <title>CampScore — لوحة النتائج</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <header>
     <div>
-      <small>LAST STANDING</small>
-      <h1>CONFERENCE SCOREBOARD</h1>
+      <small>CAMP SCORE</small>
+      <h1>لوحة النتائج</h1>
       <p>مَن يغلب</p>
     </div>
     <span id="status">Connecting…</span>
   </header>
 
+  <nav class="tabs">
+    <button type="button" class="tabBtn active" data-tab="leaderboard">🏆 Leaderboard</button>
+    <button type="button" class="tabBtn" data-tab="addscore">💣 Add Score</button>
+    <button type="button" class="tabBtn" data-tab="stats">📊 Live Stats</button>
+    <button type="button" class="tabBtn" data-tab="recent">🎮 Recent Scores</button>
+  </nav>
+
   <main>
-    <section class="card">
-      <div class="head">
-        <h2>🏆 Leaderboard</h2>
-        <button type="button" onclick="loadDashboard()">↻ Refresh</button>
-      </div>
-      <div id="board"></div>
-    </section>
 
-    <section class="cols">
+    <!-- 🏆 LEADERBOARD (public) -->
+    <section id="tab-leaderboard" class="tabPanel">
       <section class="card">
-        <h2>💣 Add Score</h2>
-        <p class="hint">💣 Bomb = 25 &nbsp; | &nbsp; 🛡️ Defuse = 25 &nbsp; | &nbsp; 🤝 Teamwork = 5</p>
-
-        <form id="scoreForm">
-          <label>
-            Team
-            <select id="team" required></select>
-          </label>
-
-          <label>
-            Result
-            <select id="result" required>
-              <option value="bomb">💣 Bomb Exploded +25</option>
-              <option value="defuse">🛡️ Defused +25</option>
-              <option value="teamwork">🤝 Teamwork +5</option>
-            </select>
-          </label>
-
-          <label>
-            Round
-            <select id="round" required>
-              <option value="1">Round 1</option>
-              <option value="2">Round 2</option>
-              <option value="3">Round 3</option>
-              <option value="4">Round 4</option>
-            </select>
-          </label>
-
-          <label>
-            Notes
-            <input id="notes" type="text" maxlength="150" placeholder="Optional">
-          </label>
-
-          <button class="primary" type="submit">ADD SCORE</button>
-        </form>
-
-        <div id="msg"></div>
+        <div class="head">
+          <h2>🏆 الترتيب العام</h2>
+          <button type="button" onclick="loadDashboard()">↻ Refresh</button>
+        </div>
+        <div id="board"></div>
       </section>
 
       <section class="card">
-        <h2>📊 Live Stats</h2>
-        <div id="stats" class="stats"></div>
+        <h2>🏅 ترتيب الحفظ الفردي</h2>
+        <div id="indivBoard"></div>
       </section>
     </section>
 
-    <section class="card">
-      <h2>🎮 Recent Scores</h2>
-      <div class="table">
-        <table>
-          <thead>
-            <tr>
-              <th>Time</th>
-              <th>Team</th>
-              <th>Round</th>
-              <th>Result</th>
-              <th>Points</th>
-            </tr>
-          </thead>
-          <tbody id="rows"></tbody>
-        </table>
+    <!-- 💣 ADD SCORE (locked) -->
+    <section id="tab-addscore" class="tabPanel hidden">
+      <div id="lock-addscore" class="lockCard">
+        <h2>🔒 هذا القسم محمي بكلمة مرور</h2>
+        <input type="password" class="lockInput" placeholder="Password">
+        <button type="button" class="primary lockSubmit">دخول</button>
+        <div class="lockMsg"></div>
+      </div>
+
+      <div id="content-addscore" class="hidden">
+        <section class="card">
+          <h2>💣 إضافة نقاط للفريق</h2>
+          <form id="scoreForm">
+            <label>
+              النتيجة
+              <select id="result" required>
+                <optgroup label="أنشطة جماعية">
+                  <option value="diff1">انا مختلف 1 — 1000</option>
+                  <option value="diff2">انا مختلف 2 — 1000</option>
+                  <option value="diff3">انا مختلف 3 — 1000</option>
+                  <option value="diff4">انا مختلف 4 — 1000</option>
+                  <option value="diff5">انا مختلف 5 — 1000</option>
+                  <option value="diff6">انا مختلف 6 — 1000</option>
+                  <option value="qedas">قداس — 5000</option>
+                  <option value="khedma">خدمة — 2000</option>
+                  <option value="salah">صلاة — 3000</option>
+                  <option value="tasbeha">تسبحة — 3000</option>
+                </optgroup>
+                <optgroup label="Bonus">
+                  <option value="bonus1">Bonus 1 — 100</option>
+                  <option value="bonus2">Bonus 2 — 200</option>
+                  <option value="bonus3">Bonus 3 — 300</option>
+                  <option value="bonus4">Bonus 4 — 400</option>
+                  <option value="bonus5">Bonus 5 — 500</option>
+                </optgroup>
+                <optgroup label="خصم">
+                  <option value="negative">خصم (نقاط سالبة)</option>
+                </optgroup>
+              </select>
+            </label>
+
+            <label>
+              الفريق
+              <select id="team" required></select>
+            </label>
+
+            <label id="participantsField">
+              عدد المشاركين الفعلي في هذا النشاط
+              <input id="participants" type="number" min="1" step="1" placeholder="e.g. 18">
+              <span class="fieldHint" id="participantsHint"></span>
+            </label>
+
+            <label id="amountField" class="hidden">
+              عدد النقاط المخصومة
+              <input id="amount" type="number" min="1" step="1" placeholder="e.g. 200">
+            </label>
+
+            <button class="primary" type="submit">ADD SCORE</button>
+          </form>
+          <div id="msg"></div>
+        </section>
+
+        <section class="card">
+          <h2>📖 حفظ (فردي)</h2>
+          <p class="hint">كل مستوى = 100 نقطة، تُضاف لصاحبها ولفريقه</p>
+          <form id="hifzForm">
+            <label>
+              الاسم
+              <select id="hifzMember" required></select>
+            </label>
+            <label>
+              المستوى
+              <select id="hifzLevel" required>
+                <option value="1">مستوى 1</option>
+                <option value="2">مستوى 2</option>
+                <option value="3">مستوى 3</option>
+                <option value="4">مستوى 4</option>
+                <option value="5">مستوى 5</option>
+                <option value="6">مستوى 6</option>
+              </select>
+            </label>
+            <button class="primary" type="submit">ADD حفظ</button>
+          </form>
+          <div id="hifzMsg"></div>
+        </section>
       </div>
     </section>
+
+    <!-- 📊 LIVE STATS (locked) -->
+    <section id="tab-stats" class="tabPanel hidden">
+      <div id="lock-stats" class="lockCard">
+        <h2>🔒 هذا القسم محمي بكلمة مرور</h2>
+        <input type="password" class="lockInput" placeholder="Password">
+        <button type="button" class="primary lockSubmit">دخول</button>
+        <div class="lockMsg"></div>
+      </div>
+
+      <div id="content-stats" class="hidden">
+        <section class="card">
+          <h2>📊 Live Stats</h2>
+          <div id="stats" class="stats"></div>
+        </section>
+      </div>
+    </section>
+
+    <!-- 🎮 RECENT SCORES (locked) -->
+    <section id="tab-recent" class="tabPanel hidden">
+      <div id="lock-recent" class="lockCard">
+        <h2>🔒 هذا القسم محمي بكلمة مرور</h2>
+        <input type="password" class="lockInput" placeholder="Password">
+        <button type="button" class="primary lockSubmit">دخول</button>
+        <div class="lockMsg"></div>
+      </div>
+
+      <div id="content-recent" class="hidden">
+        <section class="card">
+          <h2>🎮 Recent Scores</h2>
+          <div class="table">
+            <table>
+              <thead>
+                <tr>
+                  <th>الوقت</th>
+                  <th>الفريق / الاسم</th>
+                  <th>النتيجة</th>
+                  <th>النقاط</th>
+                </tr>
+              </thead>
+              <tbody id="rows"></tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+    </section>
+
   </main>
 
   <script src="config.js"></script>
   <script>
-    const RESULT_LABELS = {
-      bomb: "💣 Bomb",
-      defuse: "🛡️ Defuse",
-      teamwork: "🤝 Teamwork"
-    };
+    const PROTECTED_TABS = ["addscore", "stats", "recent"];
+    let unlocked = sessionStorage.getItem("csUnlocked") === "yes";
+    let dashboardData = null;
+    let lastCheckedPassword = sessionStorage.getItem("csPass") || "";
 
     async function api(action, data = {}) {
       const response = await fetch(APP_CONFIG.API_URL, {
         method: "POST",
-        headers: {
-          "Content-Type": "text/plain;charset=utf-8"
-        },
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
         body: JSON.stringify({ action, ...data })
       });
 
-      if (!response.ok) {
-        throw new Error("Server returned HTTP " + response.status);
-      }
+      if (!response.ok) throw new Error("Server returned HTTP " + response.status);
 
       const result = await response.json();
-
-      if (!result.ok) {
-        throw new Error(result.error || "Unknown server error");
-      }
+      if (!result.ok) throw new Error(result.error || "Unknown server error");
 
       return result;
     }
 
     function escapeHtml(value) {
       return String(value ?? "").replace(/[&<>"']/g, function (char) {
-        return {
-          "&": "&amp;",
-          "<": "&lt;",
-          ">": "&gt;",
-          '"': "&quot;",
-          "'": "&#039;"
-        }[char];
+        return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" }[char];
       });
+    }
+
+    // ---------- Tabs ----------
+    document.querySelectorAll(".tabBtn").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        const tab = btn.dataset.tab;
+
+        document.querySelectorAll(".tabBtn").forEach(function (b) { b.classList.remove("active"); });
+        btn.classList.add("active");
+
+        document.querySelectorAll(".tabPanel").forEach(function (p) { p.classList.add("hidden"); });
+        document.getElementById("tab-" + tab).classList.remove("hidden");
+
+        if (PROTECTED_TABS.indexOf(tab) !== -1) {
+          refreshLockState(tab);
+        }
+      });
+    });
+
+    function refreshLockState(tab) {
+      const lock = document.getElementById("lock-" + tab);
+      const content = document.getElementById("content-" + tab);
+      if (unlocked) {
+        lock.classList.add("hidden");
+        content.classList.remove("hidden");
+      } else {
+        lock.classList.remove("hidden");
+        content.classList.add("hidden");
+      }
+    }
+
+    document.querySelectorAll(".lockCard").forEach(function (card) {
+      const input = card.querySelector(".lockInput");
+      const submit = card.querySelector(".lockSubmit");
+      const msg = card.querySelector(".lockMsg");
+
+      input.addEventListener("input", function () { lastCheckedPassword = input.value; });
+
+      async function tryUnlock() {
+        submit.disabled = true;
+        msg.textContent = "Checking…";
+        try {
+          const res = await api("checkPassword", { password: input.value });
+          if (res.valid) {
+            unlocked = true;
+            lastCheckedPassword = input.value;
+            sessionStorage.setItem("csUnlocked", "yes");
+            sessionStorage.setItem("csPass", input.value);
+            PROTECTED_TABS.forEach(refreshLockState);
+            if (dashboardData) renderAll(dashboardData);
+          } else {
+            msg.textContent = "كلمة مرور خاطئة";
+          }
+        } catch (error) {
+          msg.textContent = error.message;
+        } finally {
+          submit.disabled = false;
+        }
+      }
+
+      submit.addEventListener("click", tryUnlock);
+      input.addEventListener("keydown", function (e) { if (e.key === "Enter") tryUnlock(); });
+    });
+
+    // ---------- Add Score form: dynamic fields ----------
+    const GROUP_KEYS = ["diff1","diff2","diff3","diff4","diff5","diff6","qedas","khedma","salah","tasbeha"];
+
+    function updateAddScoreFields() {
+      const result = document.getElementById("result").value;
+      const participantsField = document.getElementById("participantsField");
+      const amountField = document.getElementById("amountField");
+
+      if (GROUP_KEYS.indexOf(result) !== -1) {
+        participantsField.classList.remove("hidden");
+        amountField.classList.add("hidden");
+      } else if (result === "negative") {
+        participantsField.classList.add("hidden");
+        amountField.classList.remove("hidden");
+      } else {
+        participantsField.classList.add("hidden");
+        amountField.classList.add("hidden");
+      }
+      updateParticipantsHint();
+    }
+
+    function updateParticipantsHint() {
+      const teamName = document.getElementById("team").value;
+      const hint = document.getElementById("participantsHint");
+      if (!dashboardData) return;
+      const team = dashboardData.teams.find(function (t) { return t.name === teamName; });
+      hint.textContent = team ? ("من إجمالي " + team.memberCount + " فرد في الفريق") : "";
+    }
+
+    document.getElementById("result").addEventListener("change", updateAddScoreFields);
+    document.getElementById("team").addEventListener("change", updateParticipantsHint);
+
+    // ---------- Rendering ----------
+    function renderAll(data) {
+      dashboardData = data;
+
+      const board = document.getElementById("board");
+      board.innerHTML = data.teams.map(function (team, index) {
+        const medal = ["🥇", "🥈", "🥉"][index] || (index + 1);
+        const maxTotal = Math.max.apply(null, data.teams.map(function (t) { return t.total; }).concat([1]));
+        const width = Math.max(0, Math.min(100, (team.total / maxTotal) * 100));
+
+        return `
+          <div class="rank">
+            <b>${medal}</b>
+            <strong>${escapeHtml(team.name)}</strong>
+            <div class="bar"><i style="width:${width}%"></i></div>
+            <em>${team.total}</em>
+          </div>
+        `;
+      }).join("");
+
+      const indivBoard = document.getElementById("indivBoard");
+      const topIndiv = data.individuals.slice(0, 15);
+      indivBoard.innerHTML = topIndiv.length ? topIndiv.map(function (m, index) {
+        return `
+          <div class="rank indiv">
+            <b>${index + 1}</b>
+            <strong>${escapeHtml(m.name)}<span class="teamTag">${escapeHtml(m.team)}</span></strong>
+            <div class="bar"><i style="width:${Math.min(100, (m.total / (topIndiv[0].total || 1)) * 100)}%"></i></div>
+            <em>${m.total}</em>
+          </div>
+        `;
+      }).join("") : `<p class="hint">لا توجد نتائج حفظ بعد</p>`;
+
+      const teamSelect = document.getElementById("team");
+      const prevTeam = teamSelect.value;
+      teamSelect.innerHTML = data.teams.map(function (team) {
+        return `<option value="${escapeHtml(team.name)}">${escapeHtml(team.name)}</option>`;
+      }).join("");
+      if (prevTeam) teamSelect.value = prevTeam;
+      updateParticipantsHint();
+
+      const hifzMember = document.getElementById("hifzMember");
+      const prevMember = hifzMember.value;
+      hifzMember.innerHTML = data.members.map(function (m) {
+        return `<option value="${escapeHtml(m.name)}">${escapeHtml(m.name)} — ${escapeHtml(m.team)}</option>`;
+      }).join("");
+      if (prevMember) hifzMember.value = prevMember;
+
+      const stats = document.getElementById("stats");
+      const totalPoints = data.teams.reduce(function (sum, t) { return sum + Number(t.total || 0); }, 0);
+      const countByType = { group: 0, bonus: 0, hifz: 0, negative: 0 };
+      data.scores.forEach(function (s) {
+        if (countByType.hasOwnProperty(s.type)) countByType[s.type]++;
+      });
+
+      stats.innerHTML = `
+        <div><b>${totalPoints}</b><span>TOTAL POINTS</span></div>
+        <div><b>${countByType.group}</b><span>🕌 أنشطة جماعية</span></div>
+        <div><b>${countByType.bonus}</b><span>⭐ Bonus</span></div>
+        <div><b>${countByType.hifz}</b><span>📖 حفظ</span></div>
+        <div><b>${countByType.negative}</b><span>⛔ خصومات</span></div>
+      `;
+
+      const rows = document.getElementById("rows");
+      rows.innerHTML = data.scores.slice(0, 40).map(function (s) {
+        const who = s.type === "hifz" ? (s.member + " (" + s.team + ")") : s.team;
+        const pointsClass = s.points < 0 ? "neg" : "";
+        const sign = s.points >= 0 ? "+" : "";
+        return `
+          <tr>
+            <td>${escapeHtml(s.time)}</td>
+            <td>${escapeHtml(who)}</td>
+            <td>${escapeHtml(s.label)}</td>
+            <td class="${pointsClass}">${sign}${escapeHtml(s.points)}</td>
+          </tr>
+        `;
+      }).join("");
     }
 
     async function loadDashboard() {
       const status = document.getElementById("status");
-
       try {
         status.textContent = "Updating…";
-
         const data = await api("dashboard");
-
-        const board = document.getElementById("board");
-        const teamSelect = document.getElementById("team");
-        const stats = document.getElementById("stats");
-        const rows = document.getElementById("rows");
-
-        board.innerHTML = data.teams.map(function (team, index) {
-          const medal = ["🥇", "🥈", "🥉"][index] || (index + 1);
-          const width = Math.min(team.total, 100);
-
-          return `
-            <div class="rank">
-              <b>${medal}</b>
-              <strong>${escapeHtml(team.name)}</strong>
-              <div class="bar"><i style="width:${width}%"></i></div>
-              <em>${team.total}</em>
-            </div>
-          `;
-        }).join("");
-
-        teamSelect.innerHTML = data.teams.map(function (team) {
-          return `<option value="${escapeHtml(team.name)}">${escapeHtml(team.name)}</option>`;
-        }).join("");
-
-        const totalPoints = data.teams.reduce(function (sum, team) {
-          return sum + Number(team.total || 0);
-        }, 0);
-
-        const bombCount = data.scores.filter(function (s) {
-          return s.result === "bomb";
-        }).length;
-
-        const defuseCount = data.scores.filter(function (s) {
-          return s.result === "defuse";
-        }).length;
-
-        const teamworkCount = data.scores.filter(function (s) {
-          return s.result === "teamwork";
-        }).length;
-
-        stats.innerHTML = `
-          <div><b>${totalPoints}</b><span>TOTAL POINTS</span></div>
-          <div><b>${bombCount}</b><span>💣 BOMBS</span></div>
-          <div><b>${defuseCount}</b><span>🛡️ DEFUSES</span></div>
-          <div><b>${teamworkCount}</b><span>🤝 TEAMWORK</span></div>
-        `;
-
-        rows.innerHTML = data.scores.slice(0, 30).map(function (score) {
-          return `
-            <tr>
-              <td>${escapeHtml(score.time)}</td>
-              <td>${escapeHtml(score.team)}</td>
-              <td>${escapeHtml(score.round)}</td>
-              <td>${RESULT_LABELS[score.result] || escapeHtml(score.result)}</td>
-              <td>+${escapeHtml(score.points)}</td>
-            </tr>
-          `;
-        }).join("");
-
+        renderAll(data);
         status.textContent = "● LIVE";
         status.className = "live";
-
       } catch (error) {
         status.textContent = "● OFFLINE";
         status.className = "offline";
-        document.getElementById("msg").textContent = error.message;
       }
     }
 
     document.getElementById("scoreForm").addEventListener("submit", async function (event) {
       event.preventDefault();
-
       const msg = document.getElementById("msg");
       const button = event.target.querySelector("button[type='submit']");
+      const resultKey = document.getElementById("result").value;
 
       button.disabled = true;
       msg.textContent = "Saving…";
 
       try {
-        await api("addScore", {
-          team: document.getElementById("team").value,
-          result: document.getElementById("result").value,
-          round: Number(document.getElementById("round").value),
-          notes: document.getElementById("notes").value
-        });
+        let payload = {
+          password: lastCheckedPassword,
+          team: document.getElementById("team").value
+        };
 
-        document.getElementById("notes").value = "";
+        if (GROUP_KEYS.indexOf(resultKey) !== -1) {
+          payload.mode = "group";
+          payload.resultKey = resultKey;
+          payload.participants = Number(document.getElementById("participants").value);
+        } else if (resultKey === "negative") {
+          payload.mode = "negative";
+          payload.amount = Number(document.getElementById("amount").value);
+        } else {
+          payload.mode = "bonus";
+          payload.resultKey = resultKey;
+        }
+
+        await api("addScore", payload);
+
         msg.textContent = "Score added ✓";
         await loadDashboard();
-
       } catch (error) {
         msg.textContent = error.message;
       } finally {
@@ -237,6 +430,31 @@
       }
     });
 
+    document.getElementById("hifzForm").addEventListener("submit", async function (event) {
+      event.preventDefault();
+      const msg = document.getElementById("hifzMsg");
+      const button = event.target.querySelector("button[type='submit']");
+
+      button.disabled = true;
+      msg.textContent = "Saving…";
+
+      try {
+        await api("addHifzScore", {
+          password: lastCheckedPassword,
+          member: document.getElementById("hifzMember").value,
+          level: Number(document.getElementById("hifzLevel").value)
+        });
+
+        msg.textContent = "Score added ✓";
+        await loadDashboard();
+      } catch (error) {
+        msg.textContent = error.message;
+      } finally {
+        button.disabled = false;
+      }
+    });
+
+    updateAddScoreFields();
     loadDashboard();
     setInterval(loadDashboard, 15000);
   </script>
