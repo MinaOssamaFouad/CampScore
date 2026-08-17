@@ -109,7 +109,9 @@
           <form id="hifzForm">
             <label>
               الاسم
-              <select id="hifzMember" required></select>
+              <input type="text" id="hifzMember" list="hifzMemberList" autocomplete="off" placeholder="اكتب للبحث عن الاسم" required>
+              <datalist id="hifzMemberList"></datalist>
+              <span class="fieldHint" id="hifzMemberHint"></span>
             </label>
             <label>
               المستوى
@@ -183,6 +185,7 @@
     let unlocked = sessionStorage.getItem("csUnlocked") === "yes";
     let dashboardData = null;
     let lastCheckedPassword = sessionStorage.getItem("csPass") || "";
+    let memberByName = {};
 
     async function api(action, data = {}) {
       const response = await fetch(APP_CONFIG.API_URL, {
@@ -299,6 +302,15 @@
     document.getElementById("result").addEventListener("change", updateAddScoreFields);
     document.getElementById("team").addEventListener("change", updateParticipantsHint);
 
+    function updateHifzMemberHint() {
+      const name = document.getElementById("hifzMember").value;
+      const hint = document.getElementById("hifzMemberHint");
+      if (!name) { hint.textContent = ""; return; }
+      const team = memberByName[name];
+      hint.textContent = team ? ("الفريق: " + team) : "لا يوجد اسم مطابق في القائمة";
+    }
+    document.getElementById("hifzMember").addEventListener("input", updateHifzMemberHint);
+
     // ---------- Rendering ----------
     function renderAll(data) {
       dashboardData = data;
@@ -340,12 +352,13 @@
       if (prevTeam) teamSelect.value = prevTeam;
       updateParticipantsHint();
 
-      const hifzMember = document.getElementById("hifzMember");
-      const prevMember = hifzMember.value;
-      hifzMember.innerHTML = data.members.map(function (m) {
-        return `<option value="${escapeHtml(m.name)}">${escapeHtml(m.name)} — ${escapeHtml(m.team)}</option>`;
+      const hifzMemberList = document.getElementById("hifzMemberList");
+      memberByName = {};
+      data.members.forEach(function (m) { memberByName[m.name] = m.team; });
+      hifzMemberList.innerHTML = data.members.map(function (m) {
+        return `<option value="${escapeHtml(m.name)}" label="${escapeHtml(m.name)} — ${escapeHtml(m.team)}"></option>`;
       }).join("");
-      if (prevMember) hifzMember.value = prevMember;
+      updateHifzMemberHint();
 
       const stats = document.getElementById("stats");
       const totalPoints = data.teams.reduce(function (sum, t) { return sum + Number(t.total || 0); }, 0);
@@ -435,13 +448,20 @@
       const msg = document.getElementById("hifzMsg");
       const button = event.target.querySelector("button[type='submit']");
 
+      const memberName = document.getElementById("hifzMember").value;
+
+      if (!Object.prototype.hasOwnProperty.call(memberByName, memberName)) {
+        msg.textContent = "اختر اسمًا من القائمة (غير موجود في قائمة الأعضاء)";
+        return;
+      }
+
       button.disabled = true;
       msg.textContent = "Saving…";
 
       try {
         await api("addHifzScore", {
           password: lastCheckedPassword,
-          member: document.getElementById("hifzMember").value,
+          member: memberName,
           level: Number(document.getElementById("hifzLevel").value)
         });
 
