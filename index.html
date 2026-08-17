@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>CampScore — لوحة النتائج</title>
   <link rel="stylesheet" href="style.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
 <body>
   <header>
@@ -36,7 +37,10 @@
       </section>
 
       <section class="card">
-        <h2>🏅 ترتيب الحفظ الفردي</h2>
+        <div class="head">
+          <h2>🏅 ترتيب الحفظ الفردي</h2>
+          <button type="button" onclick="exportIndividualsToExcel()">⬇️ تحميل Excel</button>
+        </div>
         <div id="indivBoard"></div>
       </section>
     </section>
@@ -389,6 +393,31 @@
           </tr>
         `;
       }).join("");
+    }
+
+    function exportIndividualsToExcel() {
+      if (!dashboardData || !dashboardData.individuals.length) {
+        alert("لا توجد بيانات حفظ للتصدير بعد");
+        return;
+      }
+
+      const rows = dashboardData.individuals.map(function (m, index) {
+        return {
+          "الترتيب": index + 1,
+          "الاسم": m.name,
+          "الفريق": m.team,
+          "النقاط": m.total
+        };
+      });
+
+      const ws = XLSX.utils.json_to_sheet(rows);
+      ws["!cols"] = [{ wch: 10 }, { wch: 26 }, { wch: 26 }, { wch: 12 }];
+
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "ترتيب الحفظ الفردي");
+
+      const dateStamp = new Date().toISOString().slice(0, 10);
+      XLSX.writeFile(wb, "individual-hifz-ranking-" + dateStamp + ".xlsx");
     }
 
     async function loadDashboard() {
